@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html>
+    <head>
+	    <title>canvas 飞机大战</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+		<style>
+		    body{
+			    margin: 0;
+				padding: 0;
+			}
+			body{
+			    text-align: center;
+			}
+			canvas{
+			    margin-top: 4px;
+				box-shadow: 0 0 3px #333;
+			}
+			#planeCanvas, #bulletCanvas, #enemyCanvas{
+			    position: absolute;
+				left: 50%;
+				top: 0px;
+				margin-left: -180px;
+			}
+			audio{
+			    
+			}
+		</style>
+	</head>
+	<body>
+	    <!--<audio src="./images/bg.mp3" controls id="audio" autoplay></audio>-->
+	    <canvas id="bgCanvas" width="360" height="500"></canvas>
+		<canvas id="planeCanvas" width="360" height="500"></canvas>
+		<canvas id="bulletCanvas" width="360" height="500"></canvas>
+		<canvas id="enemyCanvas" width="360" height="500"></canvas>
+		<script>
+		    var canvas = document.getElementById('bgCanvas');
+			if(canvas.getContext){
+			    var ctx = canvas.getContext('2d');
+				var bgImage = './images/bg3.jpg';
+				
+				// 加载图片的方法
+				loadBackground(bgImage, canvas, moveCall);
+				var y = 0;
+				function moveCall(bgImage){
+				    // console.log(context);
+					
+					setInterval(function(){
+					    var speed = 4;
+						animateBackground(canvas, bgImage, speed);
+					}, 30);
+					
+					// 飞机画布
+					var planeCanvas = document.getElementById('planeCanvas');
+					var context = planeCanvas.getContext('2d');
+					var planeImg = './images/3.png';
+					var plane = createPlane(77, 97, planeImg, planeCanvas, planeCall);
+					
+					function planeCall(image){
+					    plane.draw(planeCanvas);
+					}
+					// 飞机动起来
+					setInterval(function(){
+					    context.clearRect(0, 0, planeCanvas.width, planeCanvas.height);
+						plane.draw(planeCanvas);
+					}, 30)
+					
+					// 画子弹
+					var bulletCanvas = document.getElementById('bulletCanvas');
+					var bContext = bulletCanvas.getContext('2d');
+					
+					var bWidth = 13;
+					var bHeight = 100;
+					var bUrl = './images/bullet.png';
+					var bulletArr = new Array();
+					setInterval(function(){
+					    var bullet = createBullet(bWidth, bHeight, bUrl, plane);
+						bullet.draw(bulletCanvas);
+						bulletArr.push(bullet);
+					}, 200);
+					// 让子弹飞起来
+					setInterval(function(){
+					    bContext.clearRect(0, 0, bulletCanvas.width, bulletCanvas.height);
+						
+						bulletArr.forEach((item, index) => {
+							// 判断子弹是否超出画布，超出则从数组中去除
+							if(item.isOutScreen()){
+							    bulletArr.splice(index, 1);
+							}
+						    item.move();
+							item.draw(bulletCanvas);
+							
+							enemyArr.forEach((enem, idx) => {
+							    if(isEnemyHit(item, enem)){
+								    // enem.crash();
+									enemyArr.splice(idx, 1)
+									bulletArr.splice(index, 1);
+								}
+							})
+						})
+					}, 20)
+					
+					//创建敌机
+					var emyCanvas = document.getElementById('enemyCanvas');
+					var eContext = emyCanvas.getContext('2d');
+					var enemyArr = new Array();
+					setInterval(function(){
+					    var number = getRandNumber(1, 4);
+						var enemy;
+					    switch(number){
+						    case 1:
+							    enemy = createEnemy(31, 23, './images/enemy1.png', emyCanvas);
+								break;
+							case 2:
+							    enemy = createEnemy(40, 26, './images/enemy2.png', emyCanvas);
+								break;
+							case 3:
+							    enemy = createEnemy(57, 43, './images/enemy3.png', emyCanvas);
+								break;
+							case 4:
+							    enemy = createEnemy(46, 43, './images/enemy4.png', emyCanvas);
+								break;
+						}
+						enemyArr.push(enemy);
+						enemy.draw(emyCanvas);
+					}, 1000)
+					
+					// 敌机降落
+					var eTimer = setInterval(function(){
+					    eContext.clearRect(0, 0, emyCanvas.width, emyCanvas.height);
+						enemyArr.forEach((item, index) => {
+						    item.move();
+							item.draw(emyCanvas);
+							// 碰撞检测
+							if(isEnemyHit(item, plane)){
+							    clearInterval(eTimer);
+								eTimer = null;
+								alert('游戏结束');
+							}
+							// 判断敌机是否超出画布
+							if(item.emyIsOutScreen(emyCanvas)){
+							    enemyArr.splice(index, 1);
+							}
+						})
+					}, 50);
+				}
+			}
+			
+			// 加载图片的方法
+			function loadBackground(bgImg, canvas, completeCall){
+			    var context = canvas.getContext('2d');
+			    var width = canvas.width;
+				var height = canvas.height;
+				
+				var image = new Image();
+				
+				image.onload = function(){
+				    context.drawImage(this, 0, 0, width, height);
+					context.drawImage(this, 0, -height, width, height);
+					
+					completeCall && completeCall(image);
+				}
+				image.src = bgImg;
+			};
+			
+
+			var moveY = 0;
+			// 背景滚动
+			function animateBackground(canvas, image, speed){
+			    var context = canvas.getContext('2d');
+				var width = canvas.width;
+				var height = canvas.height;
+				context.clearRect(0, 0, width, height);
+				// 存储状态
+				context.save();
+				moveY += speed;
+				if(moveY >= height){
+					moveY = 0;
+				}
+				context.translate(0, moveY);
+				context.drawImage(image, 0, 0, width, height);
+				context.drawImage(image, 0, -height, width, height);
+				
+				// 获取存储的状态
+				context.restore();
+			}
+			
+			// 创建飞机
+			function createPlane(width, height, image, canvas, callback){
+			    var context = canvas.getContext('2d');
+				var timer;
+				var canvasW = canvas.width;
+				var canvasH = canvas.height;
+				
+				var x = canvasW/2 - width / 2;   // 飞机水平居中
+				var y = canvasH - height - 20;   // 飞机垂直底部向上 20 像素
+				
+				var plane = new Plane(x, y, width, height, image, callback);
+				document.onkeydown = function(event){
+				    var event = event || window.event;
+					switch(event.keyCode){
+					    case 37:
+						    plane.left = true;
+							break;
+						case 38:
+						    plane.up = true;
+							break;
+						case 39:
+						    plane.right = true;
+							break;
+						case 40:
+						    plane.down = true;
+							break;
+					}
+				}
+				document.onkeyup = function(event){
+				    var event = event || window.event;
+					switch(event.keyCode){
+					    case 37:
+						    plane.left = false;
+							break;
+						case 38:
+						    plane.up = false;
+							break;
+						case 39:
+						    plane.right = false;
+							break;
+						case 40:
+						    plane.down = false;
+							break;
+					}
+				}
+				timer = setInterval(function(){
+				    if(plane.left) plane.x -= 2;
+				    if(plane.up) plane.y -= 2;
+				    if(plane.right) plane.x += 2;
+				    if(plane.down) plane.y += 2;
+				}, 10);
+				
+				return plane;
+			}
+			
+			class Plane{
+			    constructor(x, y, w, h, imageUrl, callback){
+				    this.x = x;
+					this.y = y;
+					this.w = w;
+					this.h = h;
+					this.image = new Image();
+					
+					this.image.onload = function(){
+					    if(callback){
+						    callback(this);
+						}
+					}
+					
+					this.image.src = imageUrl;
+					
+					this.bool = false;
+				}
+				draw(canvas){
+				    var context = canvas.getContext('2d');
+					var x = this.w * this.bool;
+					var y = this.y;
+					var w = this.w;
+					var h = this.h;
+					context.drawImage(this.image, 0, 0, w, h, this.x, this.y, w, h);
+					
+					// this.bool = !this.bool;
+				}
+			}
+			
+			// 创建子弹
+			function createBullet(bWidth, bHeight, bUrl, plane){
+			    var x = plane.x + plane.w / 2 - bWidth / 2;
+				var y = plane.y - bHeight;
+			    var bullet = new Bullet(x, y, bWidth, bHeight, bUrl);
+				
+				// 子弹的声音
+				//var bMusic = new Audio();
+				
+				return bullet;
+			}
+			
+			class Bullet{
+			    constructor(x, y, bWidth, bHeight, bUrl){
+				    this.x = x;
+					this.y = y;
+					this.w = bWidth;
+					this.h = bHeight;
+					
+					this.image = new Image();
+					this.image.src = bUrl;
+				}
+				
+				draw(canvas){
+				    var context = canvas.getContext('2d');
+					context.drawImage(this.image, this.x, this.y, this.w, this.h);
+				}
+				move(){
+				    this.y -= 10;
+				}
+				isOutScreen(){
+				    if(this.y < 0){
+					    return true;
+					}
+					return false;
+				}
+			}
+			
+			//　创建敌机
+			function getRandNumber(min, max){
+			    return Math.round(Math.random()*(max-min) + min);
+			}
+			
+			function createEnemy(w, h, imageUrl, canvas){
+				
+				var enemy = new Enemy(w, h, imageUrl, canvas);
+				return enemy;
+			}
+			class Enemy{
+			    constructor(w, h, imageUrl, canvas){
+				    var canvasW = canvas.width;
+					var canvasH = canvas.height;
+					this.x = getRandNumber(0, canvasW - w);
+					this.y = -h;
+					this.w = w;
+					this.h = h;
+					this.speed = getRandNumber(3, 10);
+					this.image = new Image();
+					this.image.src = imageUrl;
+				}
+				draw(canvas){
+				    var context = canvas.getContext('2d');
+					context.drawImage(this.image, this.x, this.y, this.w, this.h);
+				}
+				move(){
+				    this.y += this.speed;
+				}
+				emyIsOutScreen(canvas){
+				    if(this.y > canvas.height){
+					    return true;
+					}
+					return false;
+				}
+				crash(){
+				    // 敌机摧毁时的声音
+				}
+			}
+			
+			function isEnemyHit(obj1, obj2){
+			    var minX1 = obj1.x;
+				var minY1 = obj1.y;
+				var maxX1 = obj1.x + obj1.w;
+				var maxY1 = obj1.y + obj1.h;
+				
+				var minX2 = obj2.x;
+				var minY2 = obj2.y;
+				var maxX2 = obj2.x + obj2.w;
+				var maxY2 = obj2.y + obj2.h;
+				
+				var minX = Math.max(minX1, minX2);
+				var minY = Math.max(minY1, minY2);
+				
+				var maxX = Math.min(maxX1, maxX2);
+				var maxY = Math.min(maxY1, maxY2);
+				
+				if(minX < maxX && minY < maxY){
+				    return true;
+				}
+				return false;
+			}
+		</script>
+	</body>
+</html>
